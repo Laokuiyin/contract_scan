@@ -50,8 +50,8 @@ class BaiduOCRService:
             image_data = f.read()
             base64_image = base64.b64encode(image_data).decode()
 
-        # Baidu OCR API
-        url = f"https://aip.baidubce.com/rest/2.0/ocr/v1/general_basic?access_token={access_token}"
+        # Baidu OCR API - 使用高精度版
+        url = f"https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basic?access_token={access_token}"
 
         headers = {'Content-Type': 'application/x-www-form-urlencoded'}
         data = {'image': base64_image}
