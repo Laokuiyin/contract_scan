@@ -36,7 +36,7 @@ def process_ai_extraction(contract_id: str) -> dict:
             return {"status": "error", "message": "OCR text not found"}
 
         # Update status to processing
-        contract.status = ContractStatus.AI_EXTRACTION_PROCESSING
+        contract.status = ContractStatus.AI_PROCESSING
         db.commit()
 
         # Extract fields using AI
@@ -107,8 +107,8 @@ def process_ai_extraction(contract_id: str) -> dict:
         }
 
     except Exception as e:
-        # Update status to failed
-        contract.status = ContractStatus.AI_EXTRACTION_FAILED
+        # Update status to failed - Reset to allow retry
+        contract.status = ContractStatus.PENDING_AI
         db.commit()
 
         return {
