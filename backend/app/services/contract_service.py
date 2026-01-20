@@ -36,7 +36,7 @@ class ContractService:
 
     def list_contracts(self, db: Session, skip: int = 0, limit: int = 100):
         """List contracts with pagination"""
-        return db.query(Contract).options(joinedload(Contract.parties)).order_by(Contract.created_at.desc()).offset(skip).limit(limit).all()
+        return db.query(Contract).options(joinedload(Contract.parties)).order_by(Contract.upload_time.desc()).offset(skip).limit(limit).all()
 
     def serialize_contract_list(self, contracts):
         """Serialize a list of contracts with their parties"""
@@ -47,16 +47,8 @@ class ContractService:
                 "contract_type": contract.contract_type,
                 "status": contract.status,
                 "created_at": contract.created_at.isoformat() if contract.created_at else None,
-                "parties": [
-                    {
-                        "id": str(party.id),
-                        "name": party.name,
-                        "role": party.role,
-                        "party_type": party.party_type.value if party.party_type else None,
-                        "organization_id": str(party.organization_id) if party.organization_id else None
-                    }
-                    for party in contract.parties
-                ]
+                "party_a_name": next((p.party_name for p in contract.parties if p.party_type == PartyType.PARTY_A), None),
+                "party_b_name": next((p.party_name for p in contract.parties if p.party_type == PartyType.PARTY_B), None)
             }
             for contract in contracts
         ]
