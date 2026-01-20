@@ -107,8 +107,8 @@ def process_ai_extraction(contract_id: str) -> dict:
         }
 
     except Exception as e:
-        # Update status to failed - Reset to allow retry
-        contract.status = ContractStatus.PENDING_AI
+        # Update status to failed
+        contract.status = ContractStatus.PENDING_AI  # Reset to allow retry
         db.commit()
 
         return {
