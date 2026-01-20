@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from app.main import app
-from app.core.db import get_db, TestingSessionLocal
+from app.core.db import get_db, SessionLocal
 from io import BytesIO
 
 client = TestClient(app)
@@ -14,7 +14,7 @@ client = TestClient(app)
 @pytest.fixture
 def db_session():
     """Create test database session"""
-    session = TestingSessionLocal()
+    session = SessionLocal()
     try:
         yield session
     finally:
