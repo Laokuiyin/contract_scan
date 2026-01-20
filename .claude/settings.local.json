@@ -22,7 +22,13 @@
       "Bash(find:*)",
       "Bash(git amend:*)",
       "Bash(PYTHONPATH=/Users/laokui/SynologyDrive/AI/contract_scan/backend python:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(git show:*)",
+      "Bash(git log:*)",
+      "Bash(source:*)",
+      "Bash(lsof:*)",
+      "Bash(psql:*)",
+      "Bash(docker exec:*)"
     ]
   }
 }

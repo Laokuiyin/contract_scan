@@ -3,7 +3,7 @@
 import json
 from typing import Dict, Any, Optional
 import httpx
-from app.services.minio_service import MinIOService
+import os
 from app.core.config import settings
 
 
@@ -12,7 +12,7 @@ class AIExtractionService:
 
     def __init__(self):
         """Initialize AI extraction service"""
-        self.minio = MinIOService()
+        # 不再依赖 MinIO，使用本地文件
         self.api_key = settings.qwen_api_key
         self.api_url = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
         self.model_version = "qwen-plus"
@@ -128,17 +128,22 @@ class AIExtractionService:
 
     async def extract_from_minio_file(self, text_file_path: str) -> Dict[str, Any]:
         """
-        Extract fields from text file in MinIO
+        Extract fields from text file (supports both MinIO and local paths)
 
         Args:
-            text_file_path: MinIO path to text file
+            text_file_path: Path to text file (can be local or MinIO path)
 
         Returns:
             Dict with extracted fields
         """
-        # Get text content from MinIO
-        text_content_bytes = self.minio.get_file(text_file_path)
-        text_content = text_content_bytes.decode('utf-8')
+        # 判断是本地文件路径还是MinIO路径
+        if text_file_path.startswith('/') and os.path.exists(text_file_path):
+            # 本地文件
+            with open(text_file_path, 'r', encoding='utf-8') as f:
+                text_content = f.read()
+        else:
+            # MinIO路径（暂不支持，因为MinIO服务未运行）
+            raise Exception("MinIO is not configured. Please use local file paths.")
 
         # Extract fields
         return await self.extract_fields(text_content)

@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
 import ContractUpload from '../views/ContractUpload.vue'
 import ContractList from '../views/ContractList.vue'
+import ContractDetail from '../views/ContractDetail.vue'
 import ContractReview from '../views/ContractReview.vue'
 
 const routes: Array<RouteRecordRaw> = [
@@ -19,9 +20,19 @@ const routes: Array<RouteRecordRaw> = [
     component: ContractList
   },
   {
+    path: '/contracts/:id',
+    name: 'ContractDetail',
+    component: ContractDetail
+  },
+  {
     path: '/contracts/:id/review',
     name: 'ContractReview',
     component: ContractReview
+  },
+  {
+    path: '/reviews',
+    name: 'PendingReviews',
+    component: ContractList
   }
 ]
 

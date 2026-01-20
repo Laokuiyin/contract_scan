@@ -1,62 +1,126 @@
-"""OCR service for extracting text from documents"""
+"""OCR service supporting multiple providers"""
 
 import io
 import tempfile
 import os
+import base64
+import requests
 from typing import Optional
-from paddleocr import PaddleOCR
 from pdfplumber import PDF
 from docx import Document
-from app.services.minio_service import MinIOService
+from pathlib import Path
 from app.core.config import settings
+
+
+class BaiduOCRService:
+    """Baidu OCR service for text extraction from images"""
+
+    def __init__(self):
+        self.api_key = settings.baidu_ocr_api_key
+        self.secret_key = settings.baidu_ocr_secret_key
+        self.access_token = None
+
+    def get_access_token(self):
+        """Get Baidu OCR access token"""
+        if self.access_token:
+            return self.access_token
+
+        url = "https://aip.baidubce.com/oauth/2.0/token"
+        params = {
+            "grant_type": "client_credentials",
+            "client_id": self.api_key,
+            "client_secret": self.secret_key
+        }
+
+        response = requests.post(url, params=params)
+        result = response.json()
+
+        if "access_token" in result:
+            self.access_token = result["access_token"]
+            return self.access_token
+        else:
+            raise Exception(f"Failed to get access token: {result}")
+
+    def extract_text_from_image(self, image_path: str) -> str:
+        """Extract text from image using Baidu OCR"""
+        access_token = self.get_access_token()
+
+        # Read and encode image
+        with open(image_path, 'rb') as f:
+            image_data = f.read()
+            base64_image = base64.b64encode(image_data).decode()
+
+        # Baidu OCR API
+        url = f"https://aip.baidubce.com/rest/2.0/ocr/v1/general_basic?access_token={access_token}"
+
+        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+        data = {'image': base64_image}
+
+        response = requests.post(url, headers=headers, data=data)
+        result = response.json()
+
+        if "words_result" in result:
+            text_lines = [item["words"] for item in result["words_result"]]
+            return '\n'.join(text_lines)
+        else:
+            raise Exception(f"Baidu OCR error: {result}")
 
 
 class OCRService:
     """Service for OCR text extraction from PDF, images, and DOCX files"""
 
     def __init__(self):
-        """Initialize OCR service with PaddleOCR"""
-        self.minio = MinIOService()
-        self.ocr = PaddleOCR(use_angle_cls=True, lang='ch', show_log=False)
+        """Initialize OCR service"""
+        self.ocr_provider = settings.ocr_provider
+        self.paddle_ocr = None
+        self.baidu_ocr = None
+
+        # 只初始化配置的OCR服务
+        if self.ocr_provider == 'baidu':
+            try:
+                self.baidu_ocr = BaiduOCRService()
+                print("Baidu OCR initialized successfully")
+            except Exception as e:
+                print(f"Warning: Failed to initialize Baidu OCR: {e}")
+        else:
+            # 如果不是百度OCR，尝试初始化PaddleOCR
+            try:
+                from paddleocr import PaddleOCR
+                self.paddle_ocr = PaddleOCR(use_angle_cls=True, lang='ch', show_log=False)
+                print("PaddleOCR initialized successfully")
+            except Exception as e:
+                print(f"Warning: Failed to initialize PaddleOCR: {e}")
 
     def extract_text_from_file(self, file_path: str) -> str:
         """
-        Extract text from a file stored in MinIO
+        Extract text from a local file
 
         Args:
-            file_path: MinIO file path (bucket/filename)
+            file_path: Local file path
 
         Returns:
             Extracted text content
         """
-        # Download file from MinIO
-        file_content = self.minio.get_file(file_path)
-
         # Get file extension
-        filename = file_path.split("/")[-1]
+        filename = os.path.basename(file_path)
         ext = os.path.splitext(filename)[1].lower()
 
         # Extract text based on file type
         if ext == '.pdf':
-            return self._extract_from_pdf(file_content)
+            return self._extract_from_pdf(file_path)
         elif ext in ['.png', '.jpg', '.jpeg']:
-            return self._extract_from_image(file_content)
+            return self._extract_from_image(file_path)
         elif ext == '.docx':
-            return self._extract_from_docx(file_content)
+            return self._extract_from_docx(file_path)
         else:
             raise ValueError(f"Unsupported file type: {ext}")
 
-    def _extract_from_pdf(self, content: bytes) -> str:
-        """Extract text from PDF using pdfplumber for text and OCR for images"""
+    def _extract_from_pdf(self, file_path: str) -> str:
+        """Extract text from PDF using pdfplumber"""
         text_parts = []
 
-        # Save to temp file
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
-            tmp.write(content)
-            tmp_path = tmp.name
-
         try:
-            with PDF.open(tmp_path) as pdf:
+            with PDF.open(file_path) as pdf:
                 for page in pdf.pages:
                     # Try to extract text directly first
                     text = page.extract_text()
@@ -64,68 +128,79 @@ class OCRService:
                         text_parts.append(text)
                     else:
                         # If no text, try OCR on page image
-                        try:
-                            img = page.to_image()
-                            ocr_result = self.ocr.ocr(img.original, cls=True)
-                            if ocr_result and ocr_result[0]:
-                                page_text = '\n'.join([line[1][0] for line in ocr_result[0] if line[1]])
-                                text_parts.append(page_text)
-                        except Exception:
-                            pass
-        finally:
-            os.unlink(tmp_path)
+                        if self.baidu_ocr:
+                            try:
+                                img = page.to_image()
+                                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                                    img.save(tmp)
+                                    tmp_path = tmp.name
+                                text = self.baidu_ocr.extract_text_from_image(tmp_path)
+                                os.unlink(tmp_path)
+                                if text:
+                                    text_parts.append(text)
+                            except Exception as e:
+                                print(f"Baidu OCR error on PDF page: {e}")
+        except Exception as e:
+            print(f"PDF extraction error: {e}")
 
         return '\n\n'.join(text_parts)
 
-    def _extract_from_image(self, content: bytes) -> str:
+    def _extract_from_image(self, file_path: str) -> str:
+        """Extract text from image using configured OCR provider"""
+        if self.baidu_ocr:
+            try:
+                return self.baidu_ocr.extract_text_from_image(file_path)
+            except Exception as e:
+                print(f"Baidu OCR error: {e}")
+                raise e
+
+        # Fallback: PaddleOCR
+        if self.paddle_ocr:
+            return self._extract_from_image_paddle(file_path)
+
+        raise Exception("No OCR provider available")
+
+    def _extract_from_image_paddle(self, file_path: str) -> str:
         """Extract text from image using PaddleOCR"""
-        # Save to temp file
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp:
-            tmp.write(content)
-            tmp_path = tmp.name
+        if not self.paddle_ocr:
+            return ""
 
         try:
-            result = self.ocr.ocr(tmp_path, cls=True)
+            result = self.paddle_ocr.ocr(file_path, cls=True)
             if result and result[0]:
                 text_lines = [line[1][0] for line in result[0] if line[1]]
                 return '\n'.join(text_lines)
             return ""
-        finally:
-            os.unlink(tmp_path)
+        except Exception as e:
+            print(f"PaddleOCR error on image: {e}")
+            return ""
 
-    def _extract_from_docx(self, content: bytes) -> str:
+    def _extract_from_docx(self, file_path: str) -> str:
         """Extract text from DOCX document"""
-        # Save to temp file
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
-            tmp.write(content)
-            tmp_path = tmp.name
-
         try:
-            doc = Document(tmp_path)
+            doc = Document(file_path)
             text_parts = [para.text for para in doc.paragraphs if para.text.strip()]
             return '\n\n'.join(text_parts)
-        finally:
-            os.unlink(tmp_path)
+        except Exception as e:
+            print(f"DOCX extraction error: {e}")
+            return ""
 
-    def extract_and_upload_text(self, file_path: str) -> str:
+    def extract_and_save_text(self, file_path: str) -> str:
         """
-        Extract text from file and upload to MinIO
+        Extract text from file and save to local text file
 
         Args:
-            file_path: Source file path in MinIO
+            file_path: Source file path
 
         Returns:
-            MinIO path to extracted text file
+            Local path to extracted text file
         """
         # Extract text
         text = self.extract_text_from_file(file_path)
 
-        # Upload text to MinIO
-        filename = file_path.split("/")[-1].rsplit('.', 1)[0] + '.txt'
-        text_path = self.minio.upload_file(
-            content=text.encode('utf-8'),
-            filename=filename,
-            bucket_type="text"
-        )
+        # Save text file
+        text_filename = file_path.rsplit('.', 1)[0] + '.txt'
+        with open(text_filename, 'w', encoding='utf-8') as f:
+            f.write(text)
 
-        return text_path
+        return text_filename

@@ -82,12 +82,13 @@ def process_ai_extraction(contract_id: str) -> dict:
             # Add new parties
             for party_data in extracted["parties"]:
                 party_type_str = party_data.get("party_type", "甲方")
-                party_type = PartyType.PARTY_A if "甲" in party_type_str else PartyType.PARTY_B
+                # 使用枚举的值而不是枚举对象
+                party_type_value = PartyType.PARTY_A.value if "甲" in party_type_str else PartyType.PARTY_B.value
 
                 party = ContractParty(
                     contract_id=contract.id,
-                    party_type=party_type,
-                    party_name=party_data.get("party_name", ""),
+                    party_type=party_type_value,  # 使用字符串值
+                    party_name=party_data.get("party_name", "") or "未识别",  # 确保不为空
                     tax_number=party_data.get("tax_number"),
                     legal_representative=party_data.get("legal_representative"),
                     address=party_data.get("address"),

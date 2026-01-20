@@ -12,17 +12,12 @@ class Contract(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     contract_number = Column(String(100), unique=True, nullable=False, index=True)
-    contract_type = Column(SQLEnum(ContractType), nullable=False)
+    contract_type = Column(String(50), nullable=False)  # 改用字符串
     file_path = Column(String(500), nullable=False)
     ocr_text_path = Column(String(500))
-    status = Column(SQLEnum(ContractStatus), nullable=False, index=True, server_default="pending_ocr")
+    status = Column(String(50), nullable=False, index=True, server_default="pending_ocr")  # 改用字符串
     upload_time = Column(DateTime(timezone=True), server_default=func.now())
     created_by = Column(String(100))
-
-    def __init__(self, **kwargs):
-        if 'status' not in kwargs:
-            kwargs['status'] = ContractStatus.PENDING_OCR
-        super().__init__(**kwargs)
 
     # 提取字段
     total_amount = Column(Numeric(15, 2))
@@ -50,7 +45,7 @@ class ContractParty(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     contract_id = Column(UUID(as_uuid=True), ForeignKey("contracts.id"), nullable=False, index=True)
-    party_type = Column(SQLEnum(PartyType), nullable=False)
+    party_type = Column(String(50), nullable=False)  # 改用String类型，直接存储枚举值
     party_name = Column(String(500), nullable=False)
     party_type_detail = Column(String(50))
     tax_number = Column(String(50))
