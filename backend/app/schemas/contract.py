@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
@@ -21,9 +21,7 @@ class ContractPartyCreate(ContractPartyBase):
 class ContractPartyResponse(ContractPartyBase):
     id: UUID
     contract_id: UUID
-
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ContractBase(BaseModel):
     contract_number: str
@@ -52,9 +50,7 @@ class ContractResponse(ContractBase):
     expire_date: Optional[datetime] = None
     confidence_score: Optional[float] = None
     requires_review: bool
-
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ContractListResponse(BaseModel):
     id: UUID
@@ -62,6 +58,4 @@ class ContractListResponse(BaseModel):
     contract_type: ContractType
     status: ContractStatus
     upload_time: datetime
-
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
