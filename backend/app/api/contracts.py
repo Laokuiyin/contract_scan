@@ -119,6 +119,32 @@ def get_contract(contract_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Contract not found")
     return contract
 
+@router.post("/{contract_id}/ocr", response_model=ContractResponse)
+def trigger_ocr(contract_id: str, db: Session = Depends(get_db)):
+    """触发OCR识别"""
+    from app.tasks.ocr_tasks import process_ocr
+
+    contract = db.query(Contract).filter(Contract.id == contract_id).first()
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found")
+
+    # 检查状态是否允许触发OCR
+    if contract.status not in ["pending_ocr", "ocr_failed"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot trigger OCR for contract with status: {contract.status}"
+        )
+
+    # 异步处理OCR（简化版本，同步执行）
+    result = process_ocr(contract_id)
+
+    if result["status"] == "error":
+        raise HTTPException(status_code=500, detail=result.get("message", "OCR processing failed"))
+
+    # 刷新并返回更新后的合同
+    db.refresh(contract)
+    return contract
+
 @router.get("/{contract_id}/ocr-text")
 def get_ocr_text(contract_id: str, db: Session = Depends(get_db)):
     """获取合同的OCR识别文本"""
