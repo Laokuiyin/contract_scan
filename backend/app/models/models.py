@@ -15,7 +15,7 @@ class Contract(Base):
     contract_type = Column(SQLEnum(ContractType), nullable=False)
     file_path = Column(String(500), nullable=False)
     ocr_text_path = Column(String(500))
-    status = Column(SQLEnum(ContractStatus), default=ContractStatus.PENDING_OCR, nullable=False, index=True)
+    status = Column(SQLEnum(ContractStatus), nullable=False, index=True, server_default="pending_ocr")
     upload_time = Column(DateTime(timezone=True), server_default=func.now())
     created_by = Column(String(100))
 
@@ -49,7 +49,7 @@ class ContractParty(Base):
     __tablename__ = "contract_parties"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    contract_id = Column(UUID(as_uuid=True), ForeignKey("contracts.id"), nullable=False)
+    contract_id = Column(UUID(as_uuid=True), ForeignKey("contracts.id"), nullable=False, index=True)
     party_type = Column(SQLEnum(PartyType), nullable=False)
     party_name = Column(String(500), nullable=False)
     party_type_detail = Column(String(50))
@@ -66,7 +66,7 @@ class AIExtractionResult(Base):
     __tablename__ = "ai_extraction_results"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    contract_id = Column(UUID(as_uuid=True), ForeignKey("contracts.id"), nullable=False)
+    contract_id = Column(UUID(as_uuid=True), ForeignKey("contracts.id"), nullable=False, index=True)
     field_name = Column(String(100), nullable=False)
     raw_value = Column(Text)
     reasoning = Column(Text)  # JSON
@@ -82,7 +82,7 @@ class ReviewRecord(Base):
     __tablename__ = "review_records"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    contract_id = Column(UUID(as_uuid=True), ForeignKey("contracts.id"), nullable=False)
+    contract_id = Column(UUID(as_uuid=True), ForeignKey("contracts.id"), nullable=False, index=True)
     field_name = Column(String(100), nullable=False)
     ai_value = Column(Text)
     human_value = Column(Text)

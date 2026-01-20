@@ -1,5 +1,5 @@
 from app.models.models import Contract, ContractParty
-from app.models.enums import ContractType, ContractStatus
+from app.models.enums import ContractType, ContractStatus, PartyType
 
 def test_create_contract():
     contract = Contract(
@@ -20,7 +20,7 @@ def test_contract_with_party():
     )
     party = ContractParty(
         contract_id=contract.id,
-        party_type="party_a",
+        party_type=PartyType.PARTY_A,
         party_name="测试公司A"
     )
     assert party.party_name == "测试公司A"
