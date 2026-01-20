@@ -2,26 +2,47 @@ from sqlalchemy.orm import Session, joinedload
 from app.models.models import Contract
 from app.models.enums import PartyType
 from app.schemas.contract import ContractCreate
-from app.services.minio_service import MinIOService
+from pathlib import Path
 import uuid
+from datetime import datetime
+
+# 创建上传目录
+UPLOAD_DIR = Path("/opt/contract_scan/contract_scan/uploads")
+UPLOAD_DIR.mkdir(exist_ok=True)
+RAW_DIR = UPLOAD_DIR / "raw"
+RAW_DIR.mkdir(exist_ok=True)
 
 class ContractService:
     def __init__(self):
-        self.minio_service = MinIOService()
+        # 使用本地存储，不再依赖 MinIO
+        pass
+
+    def save_file_locally(self, file_content: bytes, filename: str) -> str:
+        """保存文件到本地存储"""
+        # 生成唯一文件名
+        unique_filename = f"{uuid.uuid4()}_{filename}"
+        file_path = RAW_DIR / unique_filename
+
+        # 保存文件
+        with open(file_path, 'wb') as f:
+            f.write(file_content)
+
+        return str(file_path)
 
     def create_contract(self, db: Session, contract_data: ContractCreate, file_content: bytes, created_by: str = None) -> Contract:
-        # Generate unique filename
-        file_extension = "pdf"  # Simplified
-        filename = f"{uuid.uuid4()}.{file_extension}"
+        # 获取文件扩展名
+        filename = getattr(contract_data, 'filename', contract_data.contract_number)
+        file_extension = filename.split('.')[-1] if '.' in filename else 'pdf'
 
-        # Upload to MinIO
-        file_path = self.minio_service.upload_file(file_content, filename, "raw")
+        # 保存到本地
+        file_path = self.save_file_locally(file_content, f"{filename}.{file_extension}")
 
-        # Create contract record
+        # 创建合同记录
         db_contract = Contract(
             contract_number=contract_data.contract_number,
-            contract_type=contract_data.contract_type,
+            contract_type=contract_data.contract_type.lower(),  # 确保小写
             file_path=file_path,
+            upload_time=datetime.utcnow(),
             created_by=created_by or "system"
         )
         db.add(db_contract)
