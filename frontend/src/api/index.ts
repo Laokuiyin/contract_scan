@@ -52,7 +52,11 @@ export const deleteContract = async (id: string) => {
 
 // 批量删除合同
 export const batchDeleteContracts = async (contractIds: string[]) => {
-  const response = await api.post('/contracts/batch-delete', contractIds)
+  const response = await api.post('/contracts/batch-delete', contractIds, {
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  })
   return response.data
 }
 
