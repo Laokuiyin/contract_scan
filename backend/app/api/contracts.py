@@ -22,11 +22,14 @@ async def upload_contract(
     # Read file content
     file_content = await file.read()
 
+    # 确保 contract_type 是小写字符串
+    contract_type_lower = contract_type.lower() if isinstance(contract_type, str) else str(contract_type).lower()
+
     # Create contract data
     contract_data = ContractCreate(
         contract_number=contract_number,
-        contract_type=contract_type,
-        file=file_content
+        contract_type=contract_type_lower,  # 使用小写字符串
+        filename=file.filename
     )
 
     # Save contract
