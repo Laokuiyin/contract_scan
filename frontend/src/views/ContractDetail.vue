@@ -82,7 +82,17 @@
                   第 {{ scope.row.file_order + 1 }} 页
                 </template>
               </el-table-column>
-              <el-table-column prop="filename" label="文件名" />
+              <el-table-column prop="filename" label="文件名">
+                <template #default="scope">
+                  <el-link
+                    type="primary"
+                    @click="openFile(scope.row.id)"
+                    style="cursor: pointer; font-size: 14px;"
+                  >
+                    {{ scope.row.filename }}
+                  </el-link>
+                </template>
+              </el-table-column>
               <el-table-column label="操作" width="200">
                 <template #default="scope">
                   <el-button
@@ -312,6 +322,12 @@ const downloadFile = async (fileId: string, filename: string) => {
     console.error('Download failed:', error)
     ElMessage.error('下载失败')
   }
+}
+
+const openFile = (fileId: string) => {
+  // 在新标签页打开文件
+  const url = `/api/contracts/files/${fileId}/download`
+  window.open(url, '_blank')
 }
 
 const handleDeleteFile = async (file: any) => {

@@ -292,7 +292,9 @@ def get_contract_files(contract_id: str, db: Session = Depends(get_db)):
 
 @router.get("/files/{file_id}/download")
 def download_contract_file(file_id: str, db: Session = Depends(get_db)):
-    """下载合同文件"""
+    """下载/打开合同文件"""
+    import mimetypes
+
     contract_file = db.query(ContractFile).filter(ContractFile.id == file_id).first()
     if not contract_file:
         raise HTTPException(status_code=404, detail="File not found")
@@ -300,10 +302,23 @@ def download_contract_file(file_id: str, db: Session = Depends(get_db)):
     if not os.path.exists(contract_file.file_path):
         raise HTTPException(status_code=404, detail="File not found on disk")
 
+    # 根据文件扩展名确定 MIME 类型
+    filename_lower = contract_file.filename.lower()
+    if filename_lower.endswith('.pdf'):
+        media_type = 'application/pdf'
+    elif filename_lower.endswith(('.jpg', '.jpeg')):
+        media_type = 'image/jpeg'
+    elif filename_lower.endswith('.png'):
+        media_type = 'image/png'
+    elif filename_lower.endswith('.gif'):
+        media_type = 'image/gif'
+    else:
+        media_type = 'application/octet-stream'
+
     return FileResponse(
         path=contract_file.file_path,
         filename=contract_file.filename,
-        media_type='application/octet-stream'
+        media_type=media_type
     )
 
 
