@@ -119,6 +119,81 @@ def get_contract(contract_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Contract not found")
     return contract
 
+@router.get("/{contract_id}/ocr-text")
+def get_ocr_text(contract_id: str, db: Session = Depends(get_db)):
+    """获取合同的OCR识别文本"""
+    contract = db.query(Contract).filter(Contract.id == contract_id).first()
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found")
+
+    if not contract.ocr_text_path:
+        return {
+            "contract_id": contract_id,
+            "ocr_text": None,
+            "message": "OCR识别尚未完成"
+        }
+
+    try:
+        import os
+        if os.path.exists(contract.ocr_text_path):
+            with open(contract.ocr_text_path, 'r', encoding='utf-8') as f:
+                ocr_text = f.read()
+            return {
+                "contract_id": contract_id,
+                "ocr_text": ocr_text,
+                "ocr_text_path": contract.ocr_text_path,
+                "message": "OCR识别已完成"
+            }
+        else:
+            return {
+                "contract_id": contract_id,
+                "ocr_text": None,
+                "message": "OCR文本文件不存在"
+            }
+    except Exception as e:
+        return {
+            "contract_id": contract_id,
+            "ocr_text": None,
+            "message": f"读取OCR文本失败: {str(e)}"
+        }
+
+@router.delete("/{contract_id}")
+def delete_contract(contract_id: str, db: Session = Depends(get_db)):
+    """删除单个合同"""
+    contract = db.query(Contract).filter(Contract.id == contract_id).first()
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found")
+
+    # 删除合同（级联删除关联的parties、extraction_results、review_records）
+    db.delete(contract)
+    db.commit()
+
+    return {"message": "Contract deleted successfully", "contract_id": contract_id}
+
+@router.post("/batch-delete")
+def batch_contracts(contract_ids: List[str], db: Session = Depends(get_db)):
+    """批量删除合同"""
+    if not contract_ids:
+        raise HTTPException(status_code=400, detail="No contract IDs provided")
+
+    # 查询要删除的合同
+    contracts = db.query(Contract).filter(Contract.id.in_(contract_ids)).all()
+
+    if not contracts:
+        raise HTTPException(status_code=404, detail="No contracts found")
+
+    # 删除所有合同
+    for contract in contracts:
+        db.delete(contract)
+
+    db.commit()
+
+    return {
+        "message": f"Successfully deleted {len(contracts)} contracts",
+        "deleted_count": len(contracts),
+        "contract_ids": [str(c.id) for c in contracts]
+    }
+
 # Review endpoints
 @router.post("/review", response_model=ReviewRecordResponse)
 def create_review(review_data: ReviewRecordCreate, contract_id: UUID, db: Session = Depends(get_db)):

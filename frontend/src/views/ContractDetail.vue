@@ -55,6 +55,19 @@
           </el-descriptions>
         </el-card>
 
+        <el-card class="info-card">
+          <template #header>
+            <div class="card-header">
+              <span>OCR识别结果</span>
+            </div>
+          </template>
+          <div v-if="ocrLoading" v-loading="true" style="min-height: 100px"></div>
+          <div v-else-if="ocrText" class="ocr-content">
+            <pre>{{ ocrText }}</pre>
+          </div>
+          <el-empty v-else description="暂无OCR识别结果" :image-size="80" />
+        </el-card>
+
         <el-card class="info-card" v-if="contract.requires_review">
           <template #header>
             <div class="card-header">
@@ -109,7 +122,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft, InfoFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
-import { getContractDetail } from '@/api'
+import { getContractDetail, getContractOcrText } from '@/api'
 import axios from 'axios'
 
 const router = useRouter()
@@ -117,6 +130,8 @@ const route = useRoute()
 const loading = ref(true)
 const ocrProcessing = ref(false)
 const contract = ref<any>(null)
+const ocrText = ref<string>('')
+const ocrLoading = ref(false)
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '-'
@@ -200,6 +215,9 @@ onMounted(async () => {
   try {
     const id = route.params.id as string
     contract.value = await getContractDetail(id)
+
+    // 获取OCR识别文本
+    await loadOcrText(id)
   } catch (error: any) {
     console.error('Failed to fetch contract detail:', error)
     ElMessage.error(error.response?.data?.detail || '获取合同详情失败')
@@ -207,6 +225,21 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+const loadOcrText = async (id: string) => {
+  ocrLoading.value = true
+  try {
+    const result = await getContractOcrText(id)
+    if (result.ocr_text) {
+      ocrText.value = result.ocr_text
+    }
+  } catch (error: any) {
+    console.error('Failed to fetch OCR text:', error)
+    // OCR文本加载失败不影响页面显示
+  } finally {
+    ocrLoading.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -243,5 +276,30 @@ onMounted(async () => {
 .card-header {
   font-weight: 600;
   color: #303133;
+}
+
+.ocr-content {
+  max-height: 500px;
+  overflow-y: auto;
+  background-color: #f5f7fa;
+  padding: 15px;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.ocr-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ocr-content::-webkit-scrollbar-thumb {
+  background-color: #dcdfe6;
+  border-radius: 3px;
+}
+
+.ocr-content::-webkit-scrollbar-thumb:hover {
+  background-color: #c0c4cc;
 }
 </style>

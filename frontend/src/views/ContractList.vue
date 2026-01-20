@@ -4,13 +4,28 @@
     <div class="list-container">
       <div class="list-header">
         <h2>{{ pageTitle }}</h2>
-        <el-button type="primary" @click="goToUpload">
-          <el-icon><Plus /></el-icon>
-          上传新合同
-        </el-button>
+        <div class="header-actions">
+          <el-button
+            v-if="selectedContracts.length > 0"
+            type="danger"
+            @click="handleBatchDelete"
+          >
+            批量删除 ({{ selectedContracts.length }})
+          </el-button>
+          <el-button type="primary" @click="goToUpload">
+            <el-icon><Plus /></el-icon>
+            上传新合同
+          </el-button>
+        </div>
       </div>
 
-      <el-table :data="contracts" v-loading="loading" stripe>
+      <el-table
+        :data="contracts"
+        v-loading="loading"
+        stripe
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="55" />
         <el-table-column prop="contract_number" label="合同编号" width="180" />
         <el-table-column prop="contract_type" label="合同类型" width="120">
           <template #default="{ row }">
@@ -62,13 +77,15 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Plus } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
-import { getContracts, getPendingReviews } from '@/api'
+import { getContracts, getPendingReviews, batchDeleteContracts } from '@/api'
 
 const router = useRouter()
 const route = useRoute()
 const loading = ref(true)
 const contracts = ref<any[]>([])
+const selectedContracts = ref<any[]>([])
 
 // 根据路由判断页面类型
 const pageTitle = computed(() => {
@@ -139,6 +156,44 @@ const getStatusTagType = (status: string) => {
   return types[status] || ''
 }
 
+const handleSelectionChange = (selection: any[]) => {
+  selectedContracts.value = selection
+}
+
+const handleBatchDelete = async () => {
+  if (selectedContracts.value.length === 0) {
+    ElMessage.warning('请先选择要删除的合同')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectedContracts.value.length} 个合同吗？此操作不可恢复。`,
+      '批量删除确认',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+
+    const contractIds = selectedContracts.value.map(c => c.id)
+    const result = await batchDeleteContracts(contractIds)
+
+    ElMessage.success(result.message || '删除成功')
+
+    // 重新加载数据
+    await loadContracts()
+
+    // 清空选择
+    selectedContracts.value = []
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.response?.data?.detail || '删除失败')
+    }
+  }
+}
+
 const goToUpload = () => {
   router.push('/upload')
 }
@@ -147,13 +202,12 @@ const viewDetails = (id: string) => {
   router.push(`/contracts/${id}`)
 }
 
-onMounted(async () => {
+const loadContracts = async () => {
+  loading.value = true
   try {
-    // 根据路由判断调用哪个 API
     let data
     if (route.path === '/reviews') {
       data = await getPendingReviews()
-      // 待审核页面：只显示状态为 pending_review 的合同
       const allContracts = data.contracts || data || []
       contracts.value = allContracts.filter((c: any) => c.status === 'pending_review')
     } else {
@@ -162,9 +216,14 @@ onMounted(async () => {
     }
   } catch (error) {
     console.error('Failed to fetch contracts:', error)
+    ElMessage.error('加载合同列表失败')
   } finally {
     loading.value = false
   }
+}
+
+onMounted(async () => {
+  await loadContracts()
 })
 </script>
 
@@ -193,5 +252,10 @@ onMounted(async () => {
 .list-header h2 {
   margin: 0;
   color: #303133;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
 }
 </style>

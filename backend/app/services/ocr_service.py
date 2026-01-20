@@ -1,4 +1,4 @@
-"""OCR service supporting multiple providers"""
+"""OCR service using Baidu OCR"""
 
 import io
 import tempfile
@@ -70,26 +70,14 @@ class OCRService:
     """Service for OCR text extraction from PDF, images, and DOCX files"""
 
     def __init__(self):
-        """Initialize OCR service"""
-        self.ocr_provider = settings.ocr_provider
-        self.paddle_ocr = None
+        """Initialize OCR service - Baidu OCR only"""
         self.baidu_ocr = None
-
-        # 只初始化配置的OCR服务
-        if self.ocr_provider == 'baidu':
-            try:
-                self.baidu_ocr = BaiduOCRService()
-                print("Baidu OCR initialized successfully")
-            except Exception as e:
-                print(f"Warning: Failed to initialize Baidu OCR: {e}")
-        else:
-            # 如果不是百度OCR，尝试初始化PaddleOCR
-            try:
-                from paddleocr import PaddleOCR
-                self.paddle_ocr = PaddleOCR(use_angle_cls=True, lang='ch', show_log=False)
-                print("PaddleOCR initialized successfully")
-            except Exception as e:
-                print(f"Warning: Failed to initialize PaddleOCR: {e}")
+        try:
+            self.baidu_ocr = BaiduOCRService()
+            print("Baidu OCR initialized successfully")
+        except Exception as e:
+            print(f"Warning: Failed to initialize Baidu OCR: {e}")
+            raise Exception("Baidu OCR is required but failed to initialize")
 
     def extract_text_from_file(self, file_path: str) -> str:
         """
@@ -146,34 +134,15 @@ class OCRService:
         return '\n\n'.join(text_parts)
 
     def _extract_from_image(self, file_path: str) -> str:
-        """Extract text from image using configured OCR provider"""
-        if self.baidu_ocr:
-            try:
-                return self.baidu_ocr.extract_text_from_image(file_path)
-            except Exception as e:
-                print(f"Baidu OCR error: {e}")
-                raise e
-
-        # Fallback: PaddleOCR
-        if self.paddle_ocr:
-            return self._extract_from_image_paddle(file_path)
-
-        raise Exception("No OCR provider available")
-
-    def _extract_from_image_paddle(self, file_path: str) -> str:
-        """Extract text from image using PaddleOCR"""
-        if not self.paddle_ocr:
-            return ""
+        """Extract text from image using Baidu OCR"""
+        if not self.baidu_ocr:
+            raise Exception("Baidu OCR is not available")
 
         try:
-            result = self.paddle_ocr.ocr(file_path, cls=True)
-            if result and result[0]:
-                text_lines = [line[1][0] for line in result[0] if line[1]]
-                return '\n'.join(text_lines)
-            return ""
+            return self.baidu_ocr.extract_text_from_image(file_path)
         except Exception as e:
-            print(f"PaddleOCR error on image: {e}")
-            return ""
+            print(f"Baidu OCR error: {e}")
+            raise e
 
     def _extract_from_docx(self, file_path: str) -> str:
         """Extract text from DOCX document"""

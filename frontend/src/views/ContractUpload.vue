@@ -2,7 +2,13 @@
   <div class="upload-page">
     <NavBar />
     <div class="upload-container">
-      <h2>批量上传合同</h2>
+      <div class="page-header">
+        <h2>批量上传合同</h2>
+        <el-button @click="goBack">
+          <el-icon><ArrowLeft /></el-icon>
+          返回列表
+        </el-button>
+      </div>
       <el-form :model="form" label-width="120px" class="upload-form">
         <el-form-item label="合同编号前缀">
           <el-input v-model="form.contractNumber" placeholder="请输入合同编号前缀（可选）" />
@@ -94,7 +100,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { UploadFilled, SuccessFilled, CircleCloseFilled, Loading } from '@element-plus/icons-vue'
+import { UploadFilled, SuccessFilled, CircleCloseFilled, Loading, ArrowLeft } from '@element-plus/icons-vue'
 import NavBar from '@/components/NavBar.vue'
 import { uploadContract } from '@/api'
 
@@ -231,6 +237,10 @@ const handleReset = () => {
   uploadResults.value = []
   uploadRef.value?.clearFiles()
 }
+
+const goBack = () => {
+  router.push('/contracts')
+}
 </script>
 
 <style scoped>
@@ -248,9 +258,15 @@ const handleReset = () => {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
 }
 
-.upload-container h2 {
-  margin-top: 0;
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 30px;
+}
+
+.page-header h2 {
+  margin: 0;
   color: #303133;
   font-size: 24px;
 }

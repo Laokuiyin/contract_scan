@@ -26,6 +26,12 @@ export const getContractDetail = async (id: string) => {
   return response.data
 }
 
+// 获取OCR识别文本
+export const getContractOcrText = async (id: string) => {
+  const response = await api.get(`/contracts/${id}/ocr-text`)
+  return response.data
+}
+
 // 获取待审核合同
 export const getPendingReviews = async () => {
   const response = await api.get('/contracts/pending-review')
@@ -35,6 +41,18 @@ export const getPendingReviews = async () => {
 // 提交审核
 export const submitReview = async (data: any) => {
   const response = await api.post('/contracts/review', data)
+  return response.data
+}
+
+// 删除单个合同
+export const deleteContract = async (id: string) => {
+  const response = await api.delete(`/contracts/${id}`)
+  return response.data
+}
+
+// 批量删除合同
+export const batchDeleteContracts = async (contractIds: string[]) => {
+  const response = await api.post('/contracts/batch-delete', contractIds)
   return response.data
 }
 
