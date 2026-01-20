@@ -4,8 +4,6 @@ class ContractType(str, Enum):
     PURCHASE = "purchase"
     SALES = "sales"
     LEASE = "lease"
-    SERVICE = "service"
-    EMPLOYMENT = "employment"
 
 class ContractStatus(str, Enum):
     PENDING_OCR = "pending_ocr"
