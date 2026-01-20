@@ -38,17 +38,22 @@ class ContractService:
         """List contracts with pagination"""
         return db.query(Contract).options(joinedload(Contract.parties)).order_by(Contract.upload_time.desc()).offset(skip).limit(limit).all()
 
-    def serialize_contract_list(self, contracts):
-        """Serialize a list of contracts with their parties"""
-        return [
-            {
-                "id": str(contract.id),
+    def serialize_contract_list(self, contracts: list) -> list:
+        """Serialize contracts with party names for API response"""
+        result = []
+        for contract in contracts:
+            party_a = next((p.party_name for p in contract.parties if p.party_type == PartyType.PARTY_A), None)
+            party_b = next((p.party_name for p in contract.parties if p.party_type == PartyType.PARTY_B), None)
+
+            result.append({
+                "id": contract.id,
                 "contract_number": contract.contract_number,
                 "contract_type": contract.contract_type,
                 "status": contract.status,
-                "created_at": contract.created_at.isoformat() if contract.created_at else None,
-                "party_a_name": next((p.party_name for p in contract.parties if p.party_type == PartyType.PARTY_A), None),
-                "party_b_name": next((p.party_name for p in contract.parties if p.party_type == PartyType.PARTY_B), None)
-            }
-            for contract in contracts
-        ]
+                "upload_time": contract.upload_time,
+                "total_amount": contract.total_amount,
+                "party_a_name": party_a,
+                "party_b_name": party_b,
+                "confidence_score": contract.confidence_score
+            })
+        return result
