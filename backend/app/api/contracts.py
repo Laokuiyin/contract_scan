@@ -18,19 +18,15 @@ async def upload_contract(
     db: Session = Depends(get_db)
 ):
     from app.schemas.contract import ContractCreate
-    from app.tasks.ocr_tasks import process_ocr
 
     # Read file content
     file_content = await file.read()
 
-    # 确保 contract_type 是小写字符串
-    contract_type_lower = contract_type.lower() if isinstance(contract_type, str) else str(contract_type).lower()
-
     # Create contract data
     contract_data = ContractCreate(
         contract_number=contract_number,
-        contract_type=contract_type_lower,  # 使用小写字符串
-        filename=file.filename
+        contract_type=contract_type,
+        file=file_content
     )
 
     # Save contract
@@ -38,27 +34,6 @@ async def upload_contract(
     contract = service.create_contract(db, contract_data, file_content)
 
     return contract
-
-@router.post("/{contract_id}/ocr", response_model=ContractResponse)
-def trigger_ocr(
-    contract_id: str,
-    db: Session = Depends(get_db)
-):
-    """手动触发OCR识别"""
-    from app.tasks.ocr_tasks import process_ocr
-
-    contract = db.query(Contract).filter(Contract.id == contract_id).first()
-    if not contract:
-        raise HTTPException(status_code=404, detail="Contract not found")
-
-    # 执行 OCR
-    try:
-        result = process_ocr(contract_id)
-        # 刷新合同数据
-        db.refresh(contract)
-        return contract
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"OCR failed: {str(e)}")
 
 @router.get("/", response_model=list[ContractListResponse])
 def list_contracts(
