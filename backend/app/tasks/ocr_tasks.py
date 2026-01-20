@@ -37,11 +37,24 @@ def process_ocr(contract_id: str) -> dict:
         contract.status = "pending_ai"  # 待AI提取
         db.commit()
 
-        return {
-            "status": "success",
-            "contract_id": str(contract_id),
-            "text_path": text_path
-        }
+        # 自动触发 AI 提取
+        try:
+            from app.tasks.ai_extraction_tasks import process_ai_extraction
+            ai_result = process_ai_extraction(contract_id)
+            return {
+                "status": "success",
+                "contract_id": str(contract_id),
+                "text_path": text_path,
+                "ai_extraction": ai_result
+            }
+        except Exception as ai_error:
+            # AI 提取失败不影响 OCR 结果
+            return {
+                "status": "success_with_ai_warning",
+                "contract_id": str(contract_id),
+                "text_path": text_path,
+                "message": f"OCR completed, but AI extraction failed: {str(ai_error)}"
+            }
 
     except Exception as e:
         # Update status to failed
