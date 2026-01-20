@@ -68,6 +68,46 @@
           <el-empty v-else description="暂无OCR识别结果" :image-size="80" />
         </el-card>
 
+        <el-card class="info-card">
+          <template #header>
+            <div class="card-header">
+              <span>原始文件</span>
+            </div>
+          </template>
+          <div v-if="filesLoading" v-loading="true" style="min-height: 100px"></div>
+          <div v-else-if="files && files.length > 0">
+            <el-table :data="files" style="width: 100%">
+              <el-table-column prop="file_order" label="页码" width="80">
+                <template #default="scope">
+                  第 {{ scope.row.file_order + 1 }} 页
+                </template>
+              </el-table-column>
+              <el-table-column prop="filename" label="文件名" />
+              <el-table-column label="操作" width="200">
+                <template #default="scope">
+                  <el-button
+                    size="small"
+                    type="primary"
+                    @click="downloadFile(scope.row.id, scope.row.filename)"
+                    :icon="Download"
+                  >
+                    下载
+                  </el-button>
+                  <el-button
+                    size="small"
+                    type="danger"
+                    @click="handleDeleteFile(scope.row)"
+                    :icon="Delete"
+                  >
+                    删除
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+          <el-empty v-else description="暂无文件" :image-size="80" />
+        </el-card>
+
         <el-card class="info-card" v-if="contract.requires_review">
           <template #header>
             <div class="card-header">
@@ -119,10 +159,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ArrowLeft, InfoFilled } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { ArrowLeft, InfoFilled, Download, Delete } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
-import { getContractDetail, getContractOcrText } from '@/api'
+import { getContractDetail, getContractOcrText, getContractFiles, downloadContractFile, deleteContractFile } from '@/api'
 import axios from 'axios'
 
 const router = useRouter()
@@ -132,6 +172,8 @@ const ocrProcessing = ref(false)
 const contract = ref<any>(null)
 const ocrText = ref<string>('')
 const ocrLoading = ref(false)
+const files = ref<any[]>([])
+const filesLoading = ref(false)
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '-'
@@ -218,6 +260,9 @@ onMounted(async () => {
 
     // 获取OCR识别文本
     await loadOcrText(id)
+
+    // 获取文件列表
+    await loadFiles(id)
   } catch (error: any) {
     console.error('Failed to fetch contract detail:', error)
     ElMessage.error(error.response?.data?.detail || '获取合同详情失败')
@@ -238,6 +283,62 @@ const loadOcrText = async (id: string) => {
     // OCR文本加载失败不影响页面显示
   } finally {
     ocrLoading.value = false
+  }
+}
+
+const loadFiles = async (id: string) => {
+  filesLoading.value = true
+  try {
+    files.value = await getContractFiles(id)
+  } catch (error: any) {
+    console.error('Failed to fetch files:', error)
+    ElMessage.error('加载文件列表失败')
+  } finally {
+    filesLoading.value = false
+  }
+}
+
+const downloadFile = async (fileId: string, filename: string) => {
+  try {
+    const blob = await downloadContractFile(fileId)
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    link.click()
+    window.URL.revokeObjectURL(url)
+    ElMessage.success('下载成功')
+  } catch (error: any) {
+    console.error('Download failed:', error)
+    ElMessage.error('下载失败')
+  }
+}
+
+const handleDeleteFile = async (file: any) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除文件 "${file.filename}" 吗？删除后将清空该合同的甲方、乙方、合同金额等字段。`,
+      '删除确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    const id = route.params.id as string
+    await deleteContractFile(id, file.id)
+
+    // 重新加载文件列表和合同详情
+    await loadFiles(id)
+    contract.value = await getContractDetail(id)
+
+    ElMessage.success('删除成功')
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('Delete failed:', error)
+      ElMessage.error(error.response?.data?.detail || '删除失败')
+    }
   }
 }
 </script>

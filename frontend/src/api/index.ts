@@ -60,4 +60,24 @@ export const batchDeleteContracts = async (contractIds: string[]) => {
   return response.data
 }
 
+// 获取合同文件列表
+export const getContractFiles = async (contractId: string) => {
+  const response = await api.get(`/contracts/${contractId}/files`)
+  return response.data
+}
+
+// 下载合同文件
+export const downloadContractFile = async (fileId: string) => {
+  const response = await api.get(`/contracts/files/${fileId}/download`, {
+    responseType: 'blob'
+  })
+  return response.data
+}
+
+// 删除合同文件
+export const deleteContractFile = async (contractId: string, fileId: string) => {
+  const response = await api.delete(`/contracts/${contractId}/files/${fileId}`)
+  return response.data
+}
+
 export default api
