@@ -53,10 +53,25 @@ class MinIOService:
 
         Returns:
             File content as bytes
+
+        Raises:
+            ValueError: If file_path format is invalid
+            RuntimeError: If file retrieval fails
         """
-        bucket, object_name = file_path.split("/", 1)
-        response = self.client.get_object(bucket, object_name)
-        return response.read()
+        try:
+            bucket, object_name = file_path.split("/", 1)
+        except ValueError:
+            raise ValueError(f"Invalid file_path format: {file_path}")
+
+        try:
+            response = self.client.get_object(bucket, object_name)
+            try:
+                return response.read()
+            finally:
+                response.close()
+                response.release_conn()
+        except Exception as e:
+            raise RuntimeError(f"Failed to get file {file_path}: {str(e)}") from e
 
     def delete_file(self, file_path: str):
         """
@@ -64,6 +79,17 @@ class MinIOService:
 
         Args:
             file_path: File path in format 'bucket/filename'
+
+        Raises:
+            ValueError: If file_path format is invalid
+            RuntimeError: If file deletion fails
         """
-        bucket, object_name = file_path.split("/", 1)
-        self.client.remove_object(bucket, object_name)
+        try:
+            bucket, object_name = file_path.split("/", 1)
+        except ValueError:
+            raise ValueError(f"Invalid file_path format: {file_path}")
+
+        try:
+            self.client.remove_object(bucket, object_name)
+        except Exception as e:
+            raise RuntimeError(f"Failed to delete file {file_path}: {str(e)}") from e
