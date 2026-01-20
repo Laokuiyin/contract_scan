@@ -18,15 +18,19 @@ async def upload_contract(
     db: Session = Depends(get_db)
 ):
     from app.schemas.contract import ContractCreate
+    from app.tasks.ocr_tasks import process_ocr
 
     # Read file content
     file_content = await file.read()
 
+    # 确保 contract_type 是小写字符串
+    contract_type_lower = contract_type.lower() if isinstance(contract_type, str) else str(contract_type).lower()
+
     # Create contract data
     contract_data = ContractCreate(
         contract_number=contract_number,
-        contract_type=contract_type,
-        file=file_content
+        contract_type=contract_type_lower,  # 使用小写字符串
+        filename=file.filename
     )
 
     # Save contract
@@ -35,14 +39,100 @@ async def upload_contract(
 
     return contract
 
+@router.post("/{contract_id}/ocr", response_model=ContractResponse)
+def trigger_ocr(
+    contract_id: str,
+    db: Session = Depends(get_db)
+):
+    """手动触发OCR识别"""
+    from app.tasks.ocr_tasks import process_ocr
+
+    contract = db.query(Contract).filter(Contract.id == contract_id).first()
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found")
+
+    # 执行 OCR
+    try:
+        result = process_ocr(contract_id)
+        # 刷新合同数据
+        db.refresh(contract)
+        return contract
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"OCR failed: {str(e)}")
+
 @router.get("/", response_model=list[ContractListResponse])
 def list_contracts(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db)
 ):
-    contracts = db.query(Contract).offset(skip).limit(limit).all()
-    return contracts
+    from sqlalchemy.orm import joinedload
+    from app.models.enums import PartyType
+
+    contracts = db.query(Contract)\
+        .options(joinedload(Contract.parties))\
+        .order_by(Contract.upload_time.desc())\
+        .offset(skip)\
+        .limit(limit)\
+        .all()
+
+    # Serialize with party names
+    result = []
+    for contract in contracts:
+        party_a = next((p.party_name for p in contract.parties if p.party_type == PartyType.PARTY_A), None)
+        party_b = next((p.party_name for p in contract.parties if p.party_type == PartyType.PARTY_B), None)
+
+        result.append({
+            "id": contract.id,
+            "contract_number": contract.contract_number,
+            "contract_type": contract.contract_type,
+            "status": contract.status,
+            "upload_time": contract.upload_time,
+            "total_amount": contract.total_amount,
+            "party_a_name": party_a,
+            "party_b_name": party_b,
+            "confidence_score": contract.confidence_score
+        })
+
+    return result
+
+@router.get("/pending-review", response_model=List[ContractListResponse])
+def get_pending_review_contracts(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """获取待审核合同列表"""
+    from sqlalchemy.orm import joinedload
+    from app.models.enums import PartyType
+
+    contracts = db.query(Contract)\
+        .options(joinedload(Contract.parties))\
+        .filter(Contract.requires_review == True)\
+        .order_by(Contract.upload_time.desc())\
+        .offset(skip)\
+        .limit(limit)\
+        .all()
+
+    # Serialize with party names
+    result = []
+    for contract in contracts:
+        party_a = next((p.party_name for p in contract.parties if p.party_type == PartyType.PARTY_A), None)
+        party_b = next((p.party_name for p in contract.parties if p.party_type == PartyType.PARTY_B), None)
+
+        result.append({
+            "id": contract.id,
+            "contract_number": contract.contract_number,
+            "contract_type": contract.contract_type,
+            "status": contract.status,
+            "upload_time": contract.upload_time,
+            "total_amount": contract.total_amount,
+            "party_a_name": party_a,
+            "party_b_name": party_b,
+            "confidence_score": contract.confidence_score
+        })
+
+    return result
 
 @router.get("/{contract_id}", response_model=ContractResponse)
 def get_contract(contract_id: str, db: Session = Depends(get_db)):
@@ -85,18 +175,4 @@ def get_contract_reviews(contract_id: UUID, db: Session = Depends(get_db)):
 
     reviews = db.query(ReviewRecord).filter(ReviewRecord.contract_id == contract_id).all()
     return reviews
-
-@router.get("/pending-review", response_model=List[ContractListResponse])
-def get_pending_review_contracts(
-    skip: int = 0,
-    limit: int = 100,
-    db: Session = Depends(get_db)
-):
-    """获取待审核合同列表"""
-    contracts = db.query(Contract)\
-        .filter(Contract.requires_review == True)\
-        .offset(skip)\
-        .limit(limit)\
-        .all()
-    return contracts
 
