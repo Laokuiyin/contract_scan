@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Text, Numeric, Boolean, ForeignKey, Enum as SQLEnum, Float, Index
+from sqlalchemy import Column, String, DateTime, Text, Numeric, Boolean, ForeignKey, Enum as SQLEnum, Float, Index, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -30,6 +30,7 @@ class Contract(Base):
     requires_review = Column(Boolean, default=True)
 
     # Relationships
+    files = relationship("ContractFile", back_populates="contract", cascade="all, delete-orphan")
     parties = relationship("ContractParty", back_populates="contract", cascade="all, delete-orphan")
     extraction_results = relationship("AIExtractionResult", back_populates="contract", cascade="all, delete-orphan")
     review_records = relationship("ReviewRecord", back_populates="contract", cascade="all, delete-orphan")
@@ -38,6 +39,20 @@ class Contract(Base):
         Index('ix_contract_type_date', 'contract_type', 'sign_date'),
         Index('ix_confidence_score', 'confidence_score'),
     )
+
+
+class ContractFile(Base):
+    """合同文件模型 - 支持一个合同多个文件"""
+    __tablename__ = "contract_files"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    contract_id = Column(UUID(as_uuid=True), ForeignKey("contracts.id"), nullable=False, index=True)
+    file_path = Column(String(500), nullable=False)
+    filename = Column(String(255), nullable=False)
+    file_order = Column(Integer, nullable=False, default=0)  # 文件顺序
+    upload_time = Column(DateTime(timezone=True), server_default=func.now())
+
+    contract = relationship("Contract", back_populates="files")
 
 
 class ContractParty(Base):

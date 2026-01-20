@@ -12,15 +12,18 @@ router = APIRouter()
 
 @router.post("/upload", response_model=ContractResponse)
 async def upload_contract(
-    file: UploadFile = File(...),
+    files: List[UploadFile] = File(...),  # 改为支持多文件
     contract_number: str = Form(...),
     contract_type: str = Form(...),
     db: Session = Depends(get_db)
 ):
     from app.schemas.contract import ContractCreate
 
-    # Read file content
-    file_content = await file.read()
+    # 读取所有文件内容
+    files_content = []
+    for file in files:
+        file_content = await file.read()
+        files_content.append((file.filename, file_content))
 
     # 确保 contract_type 是小写字符串
     contract_type_lower = contract_type.lower() if isinstance(contract_type, str) else str(contract_type).lower()
@@ -28,13 +31,12 @@ async def upload_contract(
     # Create contract data
     contract_data = ContractCreate(
         contract_number=contract_number,
-        contract_type=contract_type_lower,  # 使用小写字符串
-        filename=file.filename
+        contract_type=contract_type_lower
     )
 
-    # Save contract
+    # Save contract（支持多文件）
     service = ContractService()
-    contract = service.create_contract(db, contract_data, file_content)
+    contract = service.create_contract(db, contract_data, files_content)
 
     return contract
 

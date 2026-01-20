@@ -166,61 +166,70 @@ const handleSubmit = async () => {
   uploadResults.value = []
   uploadProgress.value = {
     current: 0,
-    total: fileList.value.length
+    total: 1  // 改为一次请求
   }
 
-  // 按顺序上传每个文件
-  for (let i = 0; i < fileList.value.length; i++) {
-    const file = fileList.value[i]
-    const contractNumber = generateContractNumber(i)
+  // 生成合同编号（所有文件使用同一个合同编号）
+  const contractNumber = form.value.contractNumber || `CONTRACT-${Date.now()}`
 
-    // 添加到结果列表
-    uploadResults.value.push({
-      fileName: file.name,
-      contractNumber: contractNumber,
-      status: 'uploading',
-      message: '上传中...'
+  // 添加到结果列表
+  uploadResults.value.push({
+    fileName: `${fileList.value.length} 个文件`,
+    contractNumber: contractNumber,
+    status: 'uploading',
+    message: '上传中...'
+  })
+
+  try {
+    // 一次性上传所有文件
+    const formData = new FormData()
+    formData.append('contract_number', contractNumber)
+    formData.append('contract_type', form.value.contractType)
+
+    // 添加所有文件
+    fileList.value.forEach(file => {
+      formData.append('files', file.raw)
     })
 
-    try {
-      const formData = new FormData()
-      formData.append('contract_number', contractNumber)
-      formData.append('contract_type', form.value.contractType)
-      formData.append('file', file.raw)
+    await uploadContract(formData)
 
-      await uploadContract(formData)
+    // 更新为成功
+    uploadResults.value[0] = {
+      fileName: `${fileList.value.length} 个文件`,
+      contractNumber: contractNumber,
+      status: 'success',
+      message: '上传成功'
+    }
 
-      // 更新为成功
-      uploadResults.value[i] = {
+    // 为每个文件添加成功记录
+    fileList.value.forEach(file => {
+      uploadResults.value.push({
         fileName: file.name,
         contractNumber: contractNumber,
         status: 'success',
-        message: '上传成功'
-      }
-    } catch (error: any) {
-      console.error(`Upload failed for ${file.name}:`, error)
-      // 更新为失败
-      uploadResults.value[i] = {
-        fileName: file.name,
-        contractNumber: contractNumber,
-        status: 'error',
-        message: error.response?.data?.detail || '上传失败'
-      }
+        message: '已上传'
+      })
+    })
+
+    uploadProgress.value.current = 1
+
+    ElMessage.success(`成功上传 ${fileList.value.length} 个文件到合同 ${contractNumber}`)
+  } catch (error: any) {
+    console.error('Upload failed:', error)
+
+    // 更新为失败
+    uploadResults.value[0] = {
+      fileName: `${fileList.value.length} 个文件`,
+      contractNumber: contractNumber,
+      status: 'error',
+      message: error.response?.data?.detail || '上传失败'
     }
 
-    uploadProgress.value.current = i + 1
-  }
+    uploadProgress.value.current = 1
 
-  uploading.value = false
-
-  // 显示完成提示
-  const successCount = uploadResults.value.filter(r => r.status === 'success').length
-  const failCount = uploadResults.value.filter(r => r.status === 'error').length
-
-  if (failCount === 0) {
-    ElMessage.success(`全部上传成功！共 ${successCount} 个文件`)
-  } else {
-    ElMessage.warning(`上传完成：成功 ${successCount} 个，失败 ${failCount} 个`)
+    ElMessage.error('上传失败')
+  } finally {
+    uploading.value = false
   }
 }
 
