@@ -23,13 +23,21 @@ def test_health_check(client):
     assert response.json() == {"status": "healthy"}
 
 def test_contracts_list(client):
-    """Test contracts list endpoint (placeholder)"""
+    """Test contracts list endpoint returns empty list by default"""
+    from unittest.mock import MagicMock
+    from app.core.db import get_db
+
+    # Mock database session
+    mock_db = MagicMock()
+    mock_db.query.return_value.offset.return_value.limit.return_value.all.return_value = []
+
+    # Override dependency
+    from app.main import app
+    app.dependency_overrides[get_db] = lambda: mock_db
+
     response = client.get("/api/contracts/")
     assert response.status_code == 200
     assert response.json() == []
 
-def test_contracts_upload_placeholder(client):
-    """Test contracts upload endpoint (placeholder)"""
-    response = client.post("/api/contracts/upload")
-    assert response.status_code == 200
-    assert response.json() == {"message": "Not implemented yet"}
+    # Clean up
+    app.dependency_overrides = {}
