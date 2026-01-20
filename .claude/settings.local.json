@@ -6,7 +6,23 @@
       "Bash(tree:*)",
       "Bash(git init:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(cat:*)",
+      "Skill(superpowers:requesting-code-review)",
+      "Bash(test:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(python:*)",
+      "Bash(ls:*)",
+      "Bash(pytest:*)",
+      "Bash(pip install:*)",
+      "Bash(python3:*)",
+      "Bash(alembic:*)",
+      "Bash(docker-compose:*)",
+      "Bash(docker compose:*)",
+      "Bash(find:*)",
+      "Bash(git amend:*)",
+      "Bash(PYTHONPATH=/Users/laokui/SynologyDrive/AI/contract_scan/backend python:*)",
+      "Bash(curl:*)"
     ]
   }
 }
