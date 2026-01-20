@@ -27,10 +27,8 @@ class ContractBase(BaseModel):
     contract_number: str
     contract_type: ContractType
 
-class ContractCreate(BaseModel):
-    contract_number: str
-    contract_type: str  # 改为接受字符串，避免枚举转换
-    filename: Optional[str] = None  # 原始文件名
+class ContractCreate(ContractBase):
+    file: bytes
 
 class ContractUpdate(BaseModel):
     total_amount: Optional[Decimal] = None
